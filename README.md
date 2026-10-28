@@ -9,7 +9,9 @@ An automated video-forensics framework that processes surveillance footage in re
 - **Violence detection**: identifies violent activity in the video stream.
 - **Abandoned baggage detection**: detects and counts items left unattended.
 - **Suspicious activity detection**: flags suspicious behaviors and objects.
+- **CLAHE low-quality footage enhancement**: every frame passes through a CLAHE (Contrast Limited Adaptive Histogram Equalization) stage on the LAB lightness channel before detection, recovering local contrast in dark, low-contrast or night-time footage so the detectors work on usable input.
 - **Evidence logging**: every detection is written to a timestamped CSV log (detection_log.csv) for evidence extraction and review.
+- **Tamper-proof evidence reports**: every log entry is chained with SHA-256 cryptographic hashing (each entry's hash includes the previous entry's hash). Any edit, deletion or insertion in the historical log breaks the chain. The app exposes `/evidence_report` (sealed report with head hash) and `/verify_evidence` (re-computes the chain from the raw CSV and reports the first failure).
 - **Web interface**: Flask app with live MJPEG video feed, source switching and file upload.
 
 ## Tech stack
@@ -25,6 +27,8 @@ Python, OpenCV, YOLOv8 (Ultralytics), Flask, NumPy, PyTorch
 │   ├── demo.py                     # Standalone demo script
 │   └── integrated_app.py           # Flask app using the pipeline
 ├── modules/
+│   ├── enhancement/                # CLAHE footage enhancement (modules/enhancement/clahe_enhancer.py)
+│   ├── evidence_integrity/         # SHA-256 tamper-evidence chain (modules/evidence_integrity/evidence_hasher.py)
 │   ├── crowd_detection/            # Crowd detection module
 │   ├── violence_detection/         # Violence detection module
 │   ├── abandoned_detection/        # Abandoned baggage detection module

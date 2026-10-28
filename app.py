@@ -3,6 +3,7 @@ import os
 import io
 import time
 import csv
+from modules.evidence_integrity.evidence_hasher import EvidenceHasher
 import threading
 from datetime import datetime
 from pathlib import Path
@@ -33,6 +34,7 @@ MODEL_PATH_SAD = "saved_models/best (SAD).pt" # Suspicious Activity Detection
 CUSTOM_MODELS_DIR = "custom_models"  # Directory for custom trained models
 TRAINING_DATA_DIR = "training_data"  # Directory for training images and labels
 CSV_LOG = "detection_log.csv"
+EVIDENCE_HASHER = EvidenceHasher()  # SHA-256 chain over every evidence entry
 PEOPLE_LIMIT = 10                # how many people constitute crowd
 DISTANCE_THRESHOLD = 80          # pixels; tune per camera view
 CONF_THRES = 0.25                # detection confidence threshold - lowered to detect more objects
@@ -182,9 +184,12 @@ def log_status(status, count, violence_detected, abandoned_count, suspicious_det
     if suspicious_objects:
         suspicious_objects_str = ", ".join(suspicious_objects)
     
+    row = [ts, status, count, violence_detected, abandoned_count, suspicious_detected, suspicious_objects_str]
     with open(CSV_LOG, "a", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow([ts, status, count, violence_detected, abandoned_count, suspicious_detected, suspicious_objects_str])
+        writer.writerow(row)
+    # Chain the entry cryptographically so the evidence log is tamper-evident
+    EVIDENCE_HASHER.append_entry(row)
     
     # Also log suspicious objects to console for immediate visibility
     if suspicious_objects:
@@ -1126,6 +1131,24 @@ def delete_model(model_name):
             return jsonify({"success": True, "message": f"Model {model_name} deleted successfully"})
         else:
             return jsonify({"success": False, "error": "Model not found"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/evidence_report", methods=["GET"])
+def evidence_report():
+    """Export the sealed, tamper-evident evidence report."""
+    try:
+        report = EVIDENCE_HASHER.seal_report()
+        return jsonify(report)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/verify_evidence", methods=["GET"])
+def verify_evidence():
+    """Re-compute the SHA-256 chain from the raw log and report integrity."""
+    try:
+        is_valid, details = EVIDENCE_HASHER.verify_log()
+        return jsonify({"intact": is_valid, "details": details})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

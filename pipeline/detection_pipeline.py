@@ -7,6 +7,7 @@ from modules.crowd_detection.crowd_detector import CrowdDetector
 from modules.violence_detection.violence_detector import ViolenceDetector
 from modules.abandoned_detection.abandoned_detector import AbandonedDetector
 from modules.suspicious_detection.suspicious_detector import SuspiciousDetector
+from modules.enhancement.clahe_enhancer import CLAHEEnhancer
 
 class DetectionPipeline:
     def __init__(self, conf_thres=0.35):
@@ -15,9 +16,15 @@ class DetectionPipeline:
         self.violence_detector = ViolenceDetector(conf_thres=conf_thres)
         self.abandoned_detector = AbandonedDetector(conf_thres=conf_thres)
         self.suspicious_detector = SuspiciousDetector(conf_thres=conf_thres)
+        # CLAHE enhancement recovers contrast in low-quality footage before detection
+        self.enhancer = CLAHEEnhancer()
 
     def process_frame(self, frame):
-        """Process frame with all detectors in parallel"""
+        """Process frame with all detectors in parallel.
+
+        Frames are first enhanced with CLAHE so that detectors receive
+        contrast-recovered input from low-quality surveillance footage."""
+        frame = self.enhancer.enhance(frame)
         def run_crowd():
             return self.crowd_detector.detect(frame)
 
